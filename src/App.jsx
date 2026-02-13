@@ -598,11 +598,15 @@ function StudentDashboard() {
                         transactions.map(tx => (
                             <div key={tx.id} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center border border-gray-100">
                                 <div className="flex items-center gap-3">
-                                    <Leaf size={16} className={tx.amount > 0 ? "text-green-500" : "text-orange-500"} />
+                                    {tx.points > 0 ? (
+                                        <Leaf size={16} className="text-green-500" />
+                                    ) : (
+                                        <Award size={16} className="text-orange-500" />
+                                    )}
                                     <span className="text-sm font-medium">{tx.description || 'Movimiento'}</span>
                                 </div>
-                                <span className={`font-bold ${tx.amount > 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                                <span className={`font-bold ${tx.points > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                                    {tx.points > 0 ? '+' : ''}{tx.points}
                                 </span>
                             </div>
                         ))
