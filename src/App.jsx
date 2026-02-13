@@ -1984,6 +1984,7 @@ function RankingScreen() {
     const [topAlumnos, setTopAlumnos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -1998,8 +1999,8 @@ function RankingScreen() {
         console.log("RankingScreen: Iniciando carga de datos Firestore...");
         const q = query(
             collection(db, "profiles"),
-            where("role", "==", "student"),
-            orderBy("lifetime_points", "desc")
+            where("role", "==", "student")
+            // Sin orderBy para evitar requerir índices compuestos inmediatos
         );
 
         const unsub = onSnapshot(q, (snapshot) => {
@@ -2007,8 +2008,15 @@ function RankingScreen() {
                 id: doc.id,
                 ...doc.data(),
                 lifetime_points: doc.data().lifetime_points || 0
-            }));
+            }))
+                .sort((a, b) => b.lifetime_points - a.lifetime_points); // Ordenar en memoria
+
             setTopAlumnos(ranking);
+            setLoading(false);
+            setError(null);
+        }, (err) => {
+            console.error("Error en RankingScreen:", err);
+            setError("No se pudo cargar la clasificación.");
             setLoading(false);
         });
 
@@ -2019,6 +2027,21 @@ function RankingScreen() {
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-10 text-center">
             <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
             <p className="text-gray-400 font-medium italic">Cargando clasificación ambiental...</p>
+        </div>
+    );
+
+    if (error) return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-10 text-center">
+            <div className="bg-red-50 p-6 rounded-3xl border border-red-100 mb-4 text-red-600">
+                <p className="font-black mb-2 uppercase tracking-tighter text-xl">Oops!</p>
+                <p className="text-sm font-medium">{error}</p>
+            </div>
+            <button
+                onClick={() => window.location.reload()}
+                className="bg-green-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-green-100 active:scale-95 transition-all"
+            >
+                Reintentar
+            </button>
         </div>
     );
 
