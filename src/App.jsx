@@ -1023,6 +1023,7 @@ function RegistrarScanner() {
                     student_id: sId,
                     student_name: sDoc.data().full_name,
                     performer_id: userId,
+                    registar_by: userId, // Alias para compatibilidad admin
                     points: -cost,
                     type: 'canje',
                     description: `Canje Validado: ${name}`,
@@ -1088,6 +1089,7 @@ function RegistrarScanner() {
                     student_id: selectedStudent.id,
                     student_name: selectedStudent.full_name,
                     performer_id: auth.currentUser?.uid,
+                    registar_by: auth.currentUser?.uid, // Alias para compatibilidad admin
                     points: pts,
                     bottles: bottles,
                     caps: caps,
@@ -1766,6 +1768,7 @@ function RegistrarWorkHistory() {
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [filterType, setFilterType] = useState('all'); // 'all', 'points', 'redemptions'
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -1776,16 +1779,21 @@ function RegistrarWorkHistory() {
     }, []);
 
     useEffect(() => {
-        fetchWorkHistory();
-    }, []);
+        if (userId) {
+            fetchWorkHistory();
+        }
+    }, [userId]);
 
     const fetchWorkHistory = async () => {
+        if (!userId) return;
         setLoading(true);
         try {
+            // Buscamos transacciones donde el usuario sea el registrador
+            // NOTA: Usamos preferentemente performer_id pero registar_by como fallback si fuera necesario
             const q = query(
                 collection(db, "transactions"),
-                where("performer_id", "==", userId),
-                orderBy("timestamp", "desc")
+                where("performer_id", "==", userId)
+                // Temporalmente sin orderBy para descartar falta de índices
             );
 
             const unsub = onSnapshot(q, (snapshot) => {
@@ -1793,11 +1801,15 @@ function RegistrarWorkHistory() {
                     id: doc.id,
                     ...doc.data(),
                     created_at: doc.data().timestamp?.toDate() || new Date()
-                }));
+                }))
+                    .sort((a, b) => b.created_at - a.created_at); // Sorteo manual 
+
                 setTransactions(txs);
                 setLoading(false);
+                setError(null);
             }, (err) => {
                 console.error('Error fetching work history:', err);
+                setError("Error al cargar datos. Reportalo al administrador.");
                 setLoading(false);
             });
 
@@ -1920,6 +1932,10 @@ function RegistrarWorkHistory() {
                 <div className="space-y-3">
                     {loading ? (
                         <div className="text-center py-10 text-gray-400">Cargando historial...</div>
+                    ) : error ? (
+                        <div className="bg-red-50 p-6 rounded-2xl border border-red-100 text-center text-red-600 font-bold">
+                            {error}
+                        </div>
                     ) : filteredTransactions.length === 0 ? (
                         <div className="bg-white p-8 rounded-2xl border border-dashed text-center text-gray-400">
                             No hay registros con los filtros aplicados.
