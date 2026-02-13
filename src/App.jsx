@@ -3172,20 +3172,35 @@ function AdminMaintenance() {
     };
 
     const clearTransactions = async () => {
-        if (!window.confirm("¡ATENCIÓN! Esto borrará todas las transacciones de registro y canjes permanentemente. ¿Continuar?")) return;
+        if (!window.confirm("¡ATENCIÓN! Esto borrará permanentemente todo el historial de registros y canjes. ¿Estás seguro?")) return;
         setLoading(true);
         try {
             const batch = writeBatch(db);
+            let totalDeleted = 0;
+
+            // 1. Borrar Transacciones
             const txs = await getDocs(collection(db, "transactions"));
-            txs.forEach(d => batch.delete(d.ref));
+            txs.forEach(d => {
+                batch.delete(d.ref);
+                totalDeleted++;
+            });
 
+            // 2. Borrar Canjes
             const reds = await getDocs(collection(db, "redemptions"));
-            reds.forEach(d => batch.delete(d.ref));
+            reds.forEach(d => {
+                batch.delete(d.ref);
+                totalDeleted++;
+            });
 
-            await batch.commit();
-            alert("Historiales borrados con éxito.");
+            if (totalDeleted > 0) {
+                await batch.commit();
+                alert(`Limpieza completada. Se eliminaron ${totalDeleted} registros de actividad.`);
+            } else {
+                alert("No se encontraron registros de actividad para limpiar.");
+            }
         } catch (e) {
-            alert("Error: " + e.message);
+            console.error("Error clearing activity:", e);
+            alert("Error de Permisos: No tienes privilegios para borrar el historial en el servidor. Revisa las reglas de seguridad de Firestore.\n\nDetalle: " + e.message);
         } finally {
             setLoading(false);
         }
