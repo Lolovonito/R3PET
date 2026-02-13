@@ -3197,16 +3197,27 @@ function AdminMaintenance() {
         setLoading(true);
         try {
             const batch = writeBatch(db);
-            const users = await getDocs(query(collection(db, "profiles"), where("role", "==", role)));
+            // Obtenemos todos los perfiles para evitar errores de índices o permisos en consultas filtradas
+            const snapshot = await getDocs(collection(db, "profiles"));
             let deletedCount = 0;
-            users.forEach(d => {
-                batch.delete(d.ref);
-                deletedCount++;
+
+            snapshot.forEach(d => {
+                const userData = d.data();
+                if (userData.role === role) {
+                    batch.delete(d.ref);
+                    deletedCount++;
+                }
             });
-            await batch.commit();
-            alert(`Se han borrado ${deletedCount} perfiles de ${roleLabel.toLowerCase()}.`);
+
+            if (deletedCount > 0) {
+                await batch.commit();
+                alert(`Se han borrado ${deletedCount} perfiles de ${roleLabel.toLowerCase()}.`);
+            } else {
+                alert(`No se encontraron perfiles con el rol ${roleLabel.toLowerCase()}.`);
+            }
         } catch (e) {
-            alert("Error: " + e.message);
+            console.error("Error clearing users:", e);
+            alert("Error de Permisos: Asegúrate de ser Administrador o revisa las Reglas de Seguridad en Firebase Console.\n\nDetalle: " + e.message);
         } finally {
             setLoading(false);
         }
