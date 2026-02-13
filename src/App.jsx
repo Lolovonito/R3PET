@@ -1083,6 +1083,7 @@ function RegistrarScanner() {
 
                 // 2. Registrar transacción
                 const newTransRef = doc(transactionRef);
+                const desc = `Registro: ${bottles} botellas${caps > 0 ? `, ${caps} tapitas` : ''}`;
                 transaction.set(newTransRef, {
                     student_id: selectedStudent.id,
                     student_name: selectedStudent.full_name,
@@ -1091,6 +1092,7 @@ function RegistrarScanner() {
                     bottles: bottles,
                     caps: caps,
                     type: 'registro',
+                    description: desc,
                     timestamp: serverTimestamp()
                 });
 
@@ -1620,9 +1622,15 @@ function PointsHistory() {
 
             const unsub = onSnapshot(q, (snapshot) => {
                 const txs = snapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .map(doc => ({
+                        id: doc.id,
+                        ...doc.data(),
+                        created_at: doc.data().timestamp?.toDate() || new Date()
+                    }))
                     .filter(tx => tx.points > 0);
                 setTransactions(txs);
+            }, (err) => {
+                console.error("PointsHistory Error:", err);
             });
             return () => unsub();
         }
@@ -1652,7 +1660,7 @@ function PointsHistory() {
                                         </p>
                                     </div>
                                 </div>
-                                <span className="text-green-600 font-black text-lg">+{tx.amount}</span>
+                                <span className="text-green-600 font-black text-lg">+{tx.points}</span>
                             </div>
                         ))
                     )}
@@ -1693,9 +1701,15 @@ function RedemptionsHistory() {
 
             const unsub = onSnapshot(q, (snapshot) => {
                 const txs = snapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .map(doc => ({
+                        id: doc.id,
+                        ...doc.data(),
+                        created_at: doc.data().timestamp?.toDate() || new Date()
+                    }))
                     .filter(tx => tx.points < 0);
                 setTransactions(txs);
+            }, (err) => {
+                console.error("RedemptionsHistory Error:", err);
             });
             return () => unsub();
         }
@@ -1726,7 +1740,7 @@ function RedemptionsHistory() {
                                         </p>
                                     </div>
                                 </div>
-                                <span className="text-orange-600 font-black text-lg">{tx.amount}</span>
+                                <span className="text-orange-600 font-black text-lg">{tx.points}</span>
                             </div>
                         ))
                     )}
@@ -1778,9 +1792,12 @@ function RegistrarWorkHistory() {
                 const txs = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
-                    created_at: doc.data().timestamp?.toDate() || new Date() // Fallback para visualización
+                    created_at: doc.data().timestamp?.toDate() || new Date()
                 }));
                 setTransactions(txs);
+                setLoading(false);
+            }, (err) => {
+                console.error('Error fetching work history:', err);
                 setLoading(false);
             });
 
@@ -1800,8 +1817,8 @@ function RegistrarWorkHistory() {
             (!dateRange.end || new Date(tx.created_at) <= new Date(dateRange.end));
 
         const matchesType = filterType === 'all' ||
-            (filterType === 'points' && tx.amount > 0) ||
-            (filterType === 'redemptions' && tx.amount < 0);
+            (filterType === 'points' && tx.points > 0) ||
+            (filterType === 'redemptions' && tx.points < 0);
 
         return matchesSearch && matchesDate && matchesType;
     });
@@ -1966,14 +1983,14 @@ function RankingScreen() {
         const q = query(
             collection(db, "profiles"),
             where("role", "==", "student"),
-            orderBy("total_bottles", "desc")
+            orderBy("lifetime_points", "desc")
         );
 
         const unsub = onSnapshot(q, (snapshot) => {
             const ranking = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
-                lifetime_points: (doc.data().total_bottles || 0) * 10
+                lifetime_points: doc.data().lifetime_points || 0
             }));
             setTopAlumnos(ranking);
             setLoading(false);
@@ -2308,7 +2325,7 @@ function AdminStatistics() {
                 const tx = doc.data();
                 if (tx.points > 0) ptsCreated += tx.points;
                 if (tx.points < 0) ptsRedeemed += Math.abs(tx.points);
-                if (tx.bottles) totalKg += tx.bottles * 0.05; // 50g por botella
+                if (tx.bottles) totalKg += tx.bottles * 0.05;
                 if (tx.caps) totalCaps += tx.caps;
             });
 
@@ -2317,19 +2334,29 @@ function AdminStatistics() {
                 totalPointsCreated: ptsCreated,
                 totalPointsRedeemed: ptsRedeemed,
                 totalKgRecycled: totalKg.toFixed(1),
-                totalCo2Saved: (totalKg * 1.5).toFixed(1), // Estimación CO2
+                totalCo2Saved: (totalKg * 1.5).toFixed(1),
                 totalTransactions: snapshot.size,
                 totalCaps: totalCaps,
                 avgPointsPerStudent: prev.studentCount > 0 ? (ptsCreated / prev.studentCount).toFixed(0) : 0
             }));
+            setLoading(false);
+        }, (err) => {
+            console.error("AdminStatistics Trans Error:", err);
+            setLoading(false);
         });
 
-        setLoading(false);
         return () => {
             unsubProfiles();
             unsubTrans();
         };
     }, []);
+
+    useEffect(() => {
+        // Simular fin de carga inicial una vez que los datos lleguen por primera vez
+        if (stats.totalTransactions > 0 || stats.totalUsers > 0) {
+            setLoading(false);
+        }
+    }, [stats.totalTransactions, stats.totalUsers]);
 
     // Componentes de Gráficas Artesanales (SVG)
     const EcoBarChart = ({ data }) => {
@@ -3542,8 +3569,8 @@ function AdminTransactionHistory() {
     // Filtrar transacciones
     const filteredTransactions = transactions.filter(tx => {
         const matchesFilter = filter === 'all' ||
-            (filter === 'positive' && tx.amount > 0) ||
-            (filter === 'negative' && tx.amount < 0);
+            (filter === 'positive' && tx.points > 0) ||
+            (filter === 'negative' && tx.points < 0);
 
         const matchesDate = filterByDate(tx.created_at);
 
@@ -3648,13 +3675,13 @@ function AdminTransactionHistory() {
                             <div className="text-green-100 text-center">
                                 <p className="text-[10px] font-medium">Registros</p>
                                 <p className="text-sm font-bold">
-                                    {filteredTransactions.filter(t => t.amount > 0).length}
+                                    {filteredTransactions.filter(t => t.points > 0).length}
                                 </p>
                             </div>
                             <div className="text-orange-100 text-center">
                                 <p className="text-[10px] font-medium">Canjes</p>
                                 <p className="text-sm font-bold">
-                                    {filteredTransactions.filter(t => t.amount < 0).length}
+                                    {filteredTransactions.filter(t => t.points < 0).length}
                                 </p>
                             </div>
                             {(filter !== 'all' || dateFilter !== 'all' || searchQuery) && (
@@ -3703,7 +3730,7 @@ function AdminTransactionHistory() {
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
-                        Registros PET ({transactions.filter(t => t.amount > 0).length})
+                        Registros PET ({transactions.filter(t => t.points > 0).length})
                     </button>
                     <button
                         onClick={() => setFilter('negative')}
@@ -3712,7 +3739,7 @@ function AdminTransactionHistory() {
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
-                        Canjes ({transactions.filter(t => t.amount < 0).length})
+                        Canjes ({transactions.filter(t => t.points < 0).length})
                     </button>
                 </div>
 
@@ -3888,7 +3915,7 @@ function AdminTransactionHistory() {
                         const studentProfile = profiles[transaction.student_id];
                         const registrarProfile = transaction.registar_by ? profiles[transaction.registar_by] : null;
                         const dateTime = formatDateTime(transaction.created_at);
-                        const isPositive = transaction.amount > 0;
+                        const isPositive = transaction.points > 0;
 
                         return (
                             <div
@@ -3903,7 +3930,7 @@ function AdminTransactionHistory() {
                                     <div className="flex items-center gap-3">
                                         <div className={`p-2 rounded-xl ${isPositive ? 'bg-green-100' : 'bg-orange-100'
                                             }`}>
-                                            {getTransactionIcon(transaction.amount, transaction.description)}
+                                            {getTransactionIcon(transaction.points, transaction.description)}
                                         </div>
                                         <div>
                                             <span className={`text-sm font-bold ${isPositive ? 'text-green-700' : 'text-orange-700'
@@ -3918,7 +3945,7 @@ function AdminTransactionHistory() {
                                     <div className="text-right">
                                         <span className={`text-lg font-black ${isPositive ? 'text-green-600' : 'text-orange-600'
                                             }`}>
-                                            {isPositive ? '+' : ''}{transaction.amount.toLocaleString()} pts
+                                            {isPositive ? '+' : ''}{transaction.points.toLocaleString()} pts
                                         </span>
                                     </div>
                                 </div>
