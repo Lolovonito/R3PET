@@ -508,7 +508,7 @@ function LoginScreen() {
 
 // 2. STUDENT VISTAS
 function StudentDashboard() {
-    const { points, lifetimePoints, userId, fullName } = useOutletContext();
+    const { points, lifetimePoints, totalCaps, userId, fullName } = useOutletContext();
     const [transactions, setTransactions] = useState([]);
 
     useEffect(() => {
@@ -548,20 +548,37 @@ function StudentDashboard() {
                 </div>
                 <div className="relative z-10">
                     <p className="text-xs font-black uppercase tracking-widest opacity-80 mb-2">Tu Impacto Ambiental</p>
+                    <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-white/10">
+                        <div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-black">{lifetimePoints || 0}</span>
+                                <span className="text-[10px] font-bold opacity-70">BOTs</span>
+                            </div>
+                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest">Botellas</p>
+                        </div>
+                        <div className="border-l border-white/20 pl-4">
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-black">{totalCaps || 0}</span>
+                                <span className="text-[10px] font-bold opacity-70">TAPs</span>
+                            </div>
+                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest">Tapitas</p>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <div className="flex items-baseline gap-1">
                                 <span className="text-3xl font-black">{((lifetimePoints || 0) * 0.05).toFixed(1)}</span>
                                 <span className="text-xs font-bold opacity-80">kg PET</span>
                             </div>
-                            <p className="text-[10px] font-medium opacity-70">Reciclado total</p>
+                            <p className="text-[10px] font-medium opacity-70">Peso Evidenciado</p>
                         </div>
                         <div className="border-l border-white/20 pl-4">
                             <div className="flex items-baseline gap-1 text-emerald-100">
                                 <span className="text-3xl font-black">{((lifetimePoints || 0) * 0.075).toFixed(2)}</span>
                                 <span className="text-xs font-bold opacity-80">kg CO₂</span>
                             </div>
-                            <p className="text-[10px] font-medium opacity-70 italic underline decoration-white/30 underline-offset-4">Emisiones evitadas</p>
+                            <p className="text-[10px] font-medium opacity-70 italic underline decoration-white/30 underline-offset-4">CO₂ Offset</p>
                         </div>
                     </div>
                 </div>
@@ -704,6 +721,7 @@ function RegistrarScanner() {
     const { userId } = useOutletContext();
     const [search, setSearch] = useState('');
     const [amount, setAmount] = useState('');
+    const [amountCaps, setAmountCaps] = useState('');
     const [students, setStudents] = useState([]);
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [message, setMessage] = useState(null);
@@ -1034,8 +1052,11 @@ function RegistrarScanner() {
     const handleRegister = async () => {
         if (isProcessingRegister || isSubmitting || loading) return;
 
-        if (!selectedStudent || !amount || amount <= 0) {
-            alert('Selecciona un alumno y una cantidad válida.');
+        const bottles = parseFloat(amount) || 0;
+        const caps = parseFloat(amountCaps) || 0;
+
+        if (!selectedStudent || (bottles <= 0 && caps <= 0)) {
+            alert('Selecciona un alumno y una cantidad válida (botellas o tapitas).');
             return;
         }
 
@@ -1044,7 +1065,7 @@ function RegistrarScanner() {
         setIsSubmitting(true);
 
         try {
-            const pts = Math.floor(parseFloat(amount) * 10);
+            const pts = (bottles * 10) + (caps * 3);
             const studentRef = doc(db, "profiles", selectedStudent.id);
             const transactionRef = collection(db, "transactions");
 
@@ -1052,10 +1073,11 @@ function RegistrarScanner() {
                 const sDoc = await transaction.get(studentRef);
                 if (!sDoc.exists()) throw new Error("Alumno no existe");
 
-                // 1. Actualizar perfil (puntos actuales y totales e histórico)
+                // 1. Actualizar perfil
                 transaction.update(studentRef, {
                     points: increment(pts),
-                    total_bottles: increment(parseFloat(amount)),
+                    total_bottles: increment(bottles),
+                    total_caps: increment(caps),
                     lifetime_points: increment(pts)
                 });
 
@@ -1066,7 +1088,8 @@ function RegistrarScanner() {
                     student_name: selectedStudent.full_name,
                     performer_id: auth.currentUser?.uid,
                     points: pts,
-                    bottles: parseFloat(amount),
+                    bottles: bottles,
+                    caps: caps,
                     type: 'registro',
                     timestamp: serverTimestamp()
                 });
@@ -1075,14 +1098,16 @@ function RegistrarScanner() {
                 const statsRef = doc(db, "global_stats", "totals");
                 transaction.set(statsRef, {
                     total_points: increment(pts),
-                    total_bottles: increment(parseFloat(amount)),
-                    total_kg: increment(parseFloat(amount) * 0.05),
+                    total_bottles: increment(bottles),
+                    total_caps: increment(caps),
+                    total_kg: increment(bottles * 0.05),
                     last_update: serverTimestamp()
                 }, { merge: true });
             });
 
             setMessage({ type: 'success', text: `¡Éxito! +${pts} pts a ${selectedStudent.full_name}` });
             setAmount('');
+            setAmountCaps('');
             setSearch('');
             setSelectedStudent(null);
         } catch (err) {
@@ -1181,18 +1206,33 @@ function RegistrarScanner() {
                         )}
                     </div>
 
-                    <div className="space-y-1">
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Botellas a Sumar</label>
-                        <div className="flex items-center gap-4">
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Botellas (10 pts)</label>
                             <input
                                 type="number"
                                 placeholder="0"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                className="flex-1 p-5 border-2 border-indigo-50 rounded-2xl bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none text-2xl font-bold text-center text-indigo-600 shadow-inner"
+                                className="w-full p-4 border-2 border-indigo-50 rounded-2xl bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none text-xl font-bold text-center text-indigo-600 shadow-inner"
                             />
                         </div>
-                        <p className="text-center font-bold text-indigo-500 text-xs mt-2">+ {amount ? amount * 10 : 0} PUNTOS TOTALES</p>
+                        <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Tapitas (3 pts)</label>
+                            <input
+                                type="number"
+                                placeholder="0"
+                                value={amountCaps}
+                                onChange={(e) => setAmountCaps(e.target.value)}
+                                className="w-full p-4 border-2 border-indigo-50 rounded-2xl bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none text-xl font-bold text-center text-indigo-600 shadow-inner"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 mt-2 animate-pulse-slow">
+                        <p className="text-center font-black text-indigo-600 text-sm tracking-tight">
+                            VALOR ESTIMADO: + {(amount ? parseFloat(amount) * 10 : 0) + (amountCaps ? parseFloat(amountCaps) * 3 : 0)} PUNTOS
+                        </p>
                     </div>
 
                     <button
@@ -2228,6 +2268,7 @@ function AdminStatistics() {
         totalKgRecycled: 0,
         totalCo2Saved: 0,
         totalTransactions: 0,
+        totalCaps: 0,
         avgPointsPerStudent: 0,
         weeklyData: [],
         impactDistribution: []
@@ -2262,11 +2303,13 @@ function AdminStatistics() {
             let ptsCreated = 0;
             let ptsRedeemed = 0;
             let totalKg = 0;
+            let totalCaps = 0;
             snapshot.forEach(doc => {
                 const tx = doc.data();
                 if (tx.points > 0) ptsCreated += tx.points;
                 if (tx.points < 0) ptsRedeemed += Math.abs(tx.points);
                 if (tx.bottles) totalKg += tx.bottles * 0.05; // 50g por botella
+                if (tx.caps) totalCaps += tx.caps;
             });
 
             setStats(prev => ({
@@ -2276,6 +2319,7 @@ function AdminStatistics() {
                 totalKgRecycled: totalKg.toFixed(1),
                 totalCo2Saved: (totalKg * 1.5).toFixed(1), // Estimación CO2
                 totalTransactions: snapshot.size,
+                totalCaps: totalCaps,
                 avgPointsPerStudent: prev.studentCount > 0 ? (ptsCreated / prev.studentCount).toFixed(0) : 0
             }));
         });
@@ -2463,14 +2507,18 @@ function AdminStatistics() {
                                 <Leaf size={100} />
                             </div>
                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 opacity-80">Impacto Ambiental Acumulado</h3>
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid grid-cols-3 gap-2">
                                 <div className="space-y-1">
-                                    <p className="text-4xl font-black">{stats.totalKgRecycled}</p>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">KG PET Reciclado</p>
+                                    <p className="text-3xl font-black leading-none">{stats.totalKgRecycled}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-widest opacity-70">KG PET</p>
                                 </div>
-                                <div className="space-y-1 border-l border-white/20 pl-6">
-                                    <p className="text-4xl font-black text-emerald-100">{stats.totalCo2Saved}</p>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">KG CO₂ Evitado</p>
+                                <div className="space-y-1 border-l border-white/20 pl-3">
+                                    <p className="text-3xl font-black leading-none">{stats.totalCaps}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-widest opacity-70">Tapitas</p>
+                                </div>
+                                <div className="space-y-1 border-l border-white/20 pl-3">
+                                    <p className="text-3xl font-black leading-none text-emerald-100">{stats.totalCo2Saved}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-widest opacity-70">KG CO₂</p>
                                 </div>
                             </div>
                         </div>
@@ -3095,6 +3143,7 @@ function AdminProfile() {
 function MainLayout({ role, userId, onLogout }) {
     const [points, setPoints] = useState(0);
     const [lifetimePoints, setLifetimePoints] = useState(0);
+    const [totalCaps, setTotalCaps] = useState(0);
     const [fullName, setFullName] = useState('');
     const location = useLocation();
 
@@ -3106,6 +3155,7 @@ function MainLayout({ role, userId, onLogout }) {
                     const data = docSnap.data();
                     setPoints(data.points || 0);
                     setLifetimePoints(data.total_bottles || 0);
+                    setTotalCaps(data.total_caps || 0);
                     setFullName(data.full_name);
                 }
             });
@@ -3270,7 +3320,7 @@ function MainLayout({ role, userId, onLogout }) {
             {/* Content with Animation Container */}
             <div className="flex-1 overflow-y-auto pb-20 relative">
                 <div key={location.pathname} className="animate-fade-in">
-                    <Outlet context={{ points, setPoints, userId, onLogout, lifetimePoints, fullName }} />
+                    <Outlet context={{ role, userId, points, setPoints, onLogout, lifetimePoints, totalCaps, fullName }} />
                 </div>
             </div>
 
