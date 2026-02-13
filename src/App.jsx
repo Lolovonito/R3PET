@@ -1188,7 +1188,7 @@ function RegistrarScanner() {
                             className="w-full p-4 border-2 border-gray-50 rounded-2xl bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                         />
                         {/* Buscador de alumnos (Manual) */}
-                        {students.length > 0 && !selectedStudent && (
+                        {search.length > 0 && students.length > 0 && !selectedStudent && (
                             <div className="absolute top-full left-0 right-0 bg-white border rounded-2xl mt-2 shadow-2xl z-50 max-h-60 overflow-y-auto border-gray-100">
                                 {students.map(s => (
                                     <button
