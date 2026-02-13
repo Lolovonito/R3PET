@@ -8,7 +8,8 @@ import {
     onAuthStateChanged,
     signOut,
     updateProfile,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    deleteUser
 } from "firebase/auth";
 import {
     doc,
@@ -3190,21 +3191,20 @@ function AdminMaintenance() {
         }
     };
 
-    const clearTestUsers = async () => {
-        if (!window.confirm("Esto borrará TODOS los perfiles (Firestore) que no sean administradores. ¿Seguro?")) return;
+    const clearByRole = async (role) => {
+        const roleLabel = role === 'student' ? 'ALUMNOS' : 'REGISTRADORES';
+        if (!window.confirm(`Esto borrará TODOS los perfiles de ${roleLabel} en Firestore. ¿Estás seguro?`)) return;
         setLoading(true);
         try {
             const batch = writeBatch(db);
-            const users = await getDocs(collection(db, "profiles"));
+            const users = await getDocs(query(collection(db, "profiles"), where("role", "==", role)));
             let deletedCount = 0;
             users.forEach(d => {
-                if (d.data().role !== 'admin') {
-                    batch.delete(d.ref);
-                    deletedCount++;
-                }
+                batch.delete(d.ref);
+                deletedCount++;
             });
             await batch.commit();
-            alert(`Se han borrado ${deletedCount} perfiles de prueba.`);
+            alert(`Se han borrado ${deletedCount} perfiles de ${roleLabel.toLowerCase()}.`);
         } catch (e) {
             alert("Error: " + e.message);
         } finally {
@@ -3229,7 +3229,7 @@ function AdminMaintenance() {
                     <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
                         <BarChart size={18} className="text-purple-600" /> Estadísticas Globales
                     </h3>
-                    <p className="text-xs text-gray-500 mb-4">Reinicia solo los números del dashboard administrativo (kg, puntos, etc).</p>
+                    <p className="text-xs text-gray-500 mb-4">Reinicia solo los números del dashboard administrativo.</p>
                     <button
                         onClick={resetStats}
                         disabled={loading}
@@ -3254,17 +3254,31 @@ function AdminMaintenance() {
                 </div>
 
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                    <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                        <Users size={18} className="text-red-600" /> Usuarios de Prueba
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <Users size={18} className="text-red-600" /> Gestión de Perfiles
                     </h3>
-                    <p className="text-xs text-gray-500 mb-4">Mantiene a los administradores pero borra alumnos y registradores.</p>
-                    <button
-                        onClick={clearTestUsers}
-                        disabled={loading}
-                        className="w-full bg-red-50 text-red-700 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50"
-                    >
-                        Eliminar Invitados (Firestore)
-                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center">Alumnos</p>
+                            <button
+                                onClick={() => clearByRole('student')}
+                                disabled={loading}
+                                className="w-full bg-red-50 text-red-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50"
+                            >
+                                Borrar Alumnos
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center">Registradores</p>
+                            <button
+                                onClick={() => clearByRole('registrar')}
+                                disabled={loading}
+                                className="w-full bg-gray-100 text-gray-700 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all disabled:opacity-50"
+                            >
+                                Borrar Staff
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
