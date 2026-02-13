@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import imageCompression from 'browser-image-compression';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate, Outlet, useOutletContext } from 'react-router-dom';
 import { Leaf, Award, QrCode, User, Home, PlusCircle, Users, BarChart3, Settings, LogOut, CheckCircle2, Smartphone, Download, Coffee, ShoppingBag, Clock, Search, Trophy, Shield, CreditCard, ChevronLeft, ChevronRight, X, ArrowUp, Crown, TrendingUp, Filter, RefreshCw, BarChart, Package, AlertCircle } from 'lucide-react';
 import { auth, db, storage } from './firebaseConfig';
@@ -30,7 +31,7 @@ import {
     deleteDoc,
     writeBatch
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
 import { App as CapacitorApp } from '@capacitor/app';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -1432,11 +1433,6 @@ function ProfileScreen() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (file.size > 3 * 1024 * 1024) {
-            alert('La imagen debe pesar menos de 3MB');
-            return;
-        }
-
         if (!file.type.startsWith('image/')) {
             alert('Solo se permiten imágenes');
             return;
@@ -1444,26 +1440,45 @@ function ProfileScreen() {
 
         setUploading(true);
         try {
-            // Nota: En Firebase Storage no es estrictamente necesario borrar el anterior 
-            // si usamos el mismo path, pero generaremos un nombre único.
-            const fileExt = file.name.split('.').pop();
+            // 1. Compresión Automática (Máximo 1MB para balancear calidad)
+            const options = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1024,
+                useWebWorker: true,
+            };
+            const compressedFile = await imageCompression(file, options);
+
+            // 2. Limpieza de Storage (Borrar anterior si existe)
+            if (profile?.avatar_url && profile.avatar_url.includes('firebase')) {
+                try {
+                    const decodedUrl = decodeURIComponent(profile.avatar_url.split('/o/')[1].split('?')[0]);
+                    const oldRef = ref(storage, decodedUrl);
+                    await deleteObject(oldRef);
+                } catch (delErr) {
+                    console.warn("No se pudo borrar el avatar anterior:", delErr);
+                }
+            }
+
+            // 3. Subida del archivo optimizado
+            const fileExt = compressedFile.name.split('.').pop() || 'jpg';
             const fileName = `avatars/${userId}-${Date.now()}.${fileExt}`;
             const storageRef = ref(storage, fileName);
 
-            // Subir archivo
-            await uploadBytes(storageRef, file);
-
-            // Obtener URL
+            await uploadBytes(storageRef, compressedFile);
             const publicUrl = await getDownloadURL(storageRef);
 
-            // Actualizar perfil en Firestore
+            // 4. Actualizar Firestore
             await updateDoc(doc(db, "profiles", userId), {
                 avatar_url: publicUrl
             });
 
+            // Actualizar estado local
+            setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+            alert("Avatar actualizado y optimizado 🚀");
+
         } catch (error) {
             console.error('Error al subir imagen:', error);
-            alert('Error al subir imagen: ' + error.message);
+            alert('Error al gestionar imagen: ' + error.message);
         } finally {
             setUploading(false);
         }
@@ -3339,11 +3354,6 @@ function AdminProfile() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (file.size > 3 * 1024 * 1024) {
-            alert('La imagen debe pesar menos de 3MB');
-            return;
-        }
-
         if (!file.type.startsWith('image/')) {
             alert('Solo se permiten imágenes');
             return;
@@ -3351,26 +3361,45 @@ function AdminProfile() {
 
         setUploading(true);
         try {
-            // Nota: En Firebase Storage no es estrictamente necesario borrar el anterior 
-            // si usamos el mismo path, pero generaremos un nombre único.
-            const fileExt = file.name.split('.').pop();
+            // 1. Compresión Automática (Máximo 1MB para balancear calidad)
+            const options = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1024,
+                useWebWorker: true,
+            };
+            const compressedFile = await imageCompression(file, options);
+
+            // 2. Limpieza de Storage (Borrar anterior si existe)
+            if (profile?.avatar_url && profile.avatar_url.includes('firebase')) {
+                try {
+                    const decodedUrl = decodeURIComponent(profile.avatar_url.split('/o/')[1].split('?')[0]);
+                    const oldRef = ref(storage, decodedUrl);
+                    await deleteObject(oldRef);
+                } catch (delErr) {
+                    console.warn("No se pudo borrar el avatar anterior:", delErr);
+                }
+            }
+
+            // 3. Subida del archivo optimizado
+            const fileExt = compressedFile.name.split('.').pop() || 'jpg';
             const fileName = `avatars/${userId}-${Date.now()}.${fileExt}`;
             const storageRef = ref(storage, fileName);
 
-            // Subir archivo
-            await uploadBytes(storageRef, file);
-
-            // Obtener URL
+            await uploadBytes(storageRef, compressedFile);
             const publicUrl = await getDownloadURL(storageRef);
 
-            // Actualizar perfil en Firestore
+            // 4. Actualizar Firestore
             await updateDoc(doc(db, "profiles", userId), {
                 avatar_url: publicUrl
             });
 
+            // Actualizar estado local
+            setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
+            alert("Avatar actualizado y optimizado 🚀");
+
         } catch (error) {
             console.error('Error al subir imagen:', error);
-            alert('Error al subir imagen: ' + error.message);
+            alert('Error al gestionar imagen: ' + error.message);
         } finally {
             setUploading(false);
         }
