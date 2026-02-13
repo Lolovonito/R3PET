@@ -26,7 +26,10 @@ import {
     increment,
     runTransaction,
     serverTimestamp,
-    deleteDoc
+    deleteDoc,
+    writeBatch,
+    getDocs,
+    setDoc
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
@@ -2318,6 +2321,16 @@ function AdminDashboard() {
                         </div>
                     </div>
                 </Link>
+
+                <Link to="/app/admin/maintenance" className="bg-white p-4 rounded-2xl shadow-sm border border-red-50 flex items-center justify-between hover:bg-red-50 hover:border-red-100 transition-all active:scale-95">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-red-100 p-2.5 rounded-xl text-red-600"><RefreshCw size={20} /></div>
+                        <div>
+                            <span className="font-bold text-gray-800 block text-red-700">Mantenimiento App</span>
+                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Limpieza y Reseteo Crítico</span>
+                        </div>
+                    </div>
+                </Link>
             </div>
         </div>
     );
@@ -3135,6 +3148,138 @@ function AdminCreateUser() {
     );
 }
 
+// 5. MAINTENANCE VISTAS
+function AdminMaintenance() {
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+
+    const resetStats = async () => {
+        if (!window.confirm("¿Estás seguro de reiniciar todas las estadísticas globales? Esto no borrará los historiales, solo los contadores acumulados.")) return;
+        setLoading(true);
+        try {
+            await setDoc(doc(db, "global_stats", "totals"), {
+                total_points: 0,
+                total_bottles: 0,
+                total_caps: 0,
+                total_kg: 0,
+                last_reset: serverTimestamp()
+            });
+            alert("Estadísticas reiniciadas.");
+        } catch (e) {
+            alert("Error: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const clearTransactions = async () => {
+        if (!window.confirm("¡ATENCIÓN! Esto borrará todas las transacciones de registro y canjes permanentemente. ¿Continuar?")) return;
+        setLoading(true);
+        try {
+            const batch = writeBatch(db);
+            const txs = await getDocs(collection(db, "transactions"));
+            txs.forEach(d => batch.delete(d.ref));
+
+            const reds = await getDocs(collection(db, "redemptions"));
+            reds.forEach(d => batch.delete(d.ref));
+
+            await batch.commit();
+            alert("Historiales borrados con éxito.");
+        } catch (e) {
+            alert("Error: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const clearTestUsers = async () => {
+        if (!window.confirm("Esto borrará TODOS los perfiles (Firestore) que no sean administradores. ¿Seguro?")) return;
+        setLoading(true);
+        try {
+            const batch = writeBatch(db);
+            const users = await getDocs(collection(db, "profiles"));
+            let deletedCount = 0;
+            users.forEach(d => {
+                if (d.data().role !== 'admin') {
+                    batch.delete(d.ref);
+                    deletedCount++;
+                }
+            });
+            await batch.commit();
+            alert(`Se han borrado ${deletedCount} perfiles de prueba.`);
+        } catch (e) {
+            alert("Error: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="p-4 space-y-6">
+            <header className="bg-white p-6 rounded-3xl shadow-xl shadow-red-100/50 border border-red-50 border-l-8 border-l-red-600 mb-6 flex items-center gap-4 animate-fade-in">
+                <button onClick={() => navigate(-1)} className="bg-gray-50 p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
+                    <ChevronLeft size={20} />
+                </button>
+                <div>
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tighter leading-none mb-1">Mantenimiento</h2>
+                    <p className="text-[10px] text-red-600 font-black uppercase tracking-[0.2em]">Herramientas de Limpieza</p>
+                </div>
+            </header>
+
+            <div className="space-y-4">
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                        <BarChart size={18} className="text-purple-600" /> Estadísticas Globales
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-4">Reinicia solo los números del dashboard administrativo (kg, puntos, etc).</p>
+                    <button
+                        onClick={resetStats}
+                        disabled={loading}
+                        className="w-full bg-purple-50 text-purple-700 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-purple-100 transition-all disabled:opacity-50"
+                    >
+                        Reiniciar Contadores
+                    </button>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                        <Clock size={18} className="text-orange-600" /> Historial de Actividad
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-4">Borra permanentemente todos los registros de botellas, tapitas y premios.</p>
+                    <button
+                        onClick={clearTransactions}
+                        disabled={loading}
+                        className="w-full bg-orange-50 text-orange-700 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-orange-100 transition-all disabled:opacity-50"
+                    >
+                        Limpiar Transacciones
+                    </button>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                        <Users size={18} className="text-red-600" /> Usuarios de Prueba
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-4">Mantiene a los administradores pero borra alumnos y registradores.</p>
+                    <button
+                        onClick={clearTestUsers}
+                        disabled={loading}
+                        className="w-full bg-red-50 text-red-700 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all disabled:opacity-50"
+                    >
+                        Eliminar Invitados (Firestore)
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex gap-3 text-amber-800">
+                <AlertCircle size={24} className="flex-shrink-0" />
+                <p className="text-[10px] font-medium leading-relaxed">
+                    <strong>Nota:</strong> Firebase Auth requiere borrar manualmente las cuentas desde la consola para liberar el email. Esta herramienta limpia los datos operativos.
+                </p>
+            </div>
+        </div>
+    );
+}
+
 function AdminProfile() {
     const { userId, onLogout } = useOutletContext();
     const [profile, setProfile] = useState(null);
@@ -3567,6 +3712,7 @@ function App() {
                             <Route path="admin/users" element={<AdminUserManagement />} />
                             <Route path="admin/create" element={<AdminCreateUser />} />
                             <Route path="admin/statistics" element={<AdminStatistics />} />
+                            <Route path="admin/maintenance" element={<AdminMaintenance />} />
                             <Route path="admin/history" element={<AdminTransactionHistory />} />
                             <Route path="profile" element={<ProfileScreen />} />
                         </>
