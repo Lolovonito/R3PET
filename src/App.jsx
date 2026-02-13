@@ -27,9 +27,7 @@ import {
     runTransaction,
     serverTimestamp,
     deleteDoc,
-    writeBatch,
-    getDocs,
-    setDoc
+    writeBatch
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
