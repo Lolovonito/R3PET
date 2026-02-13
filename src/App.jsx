@@ -1810,8 +1810,8 @@ function RegistrarWorkHistory() {
 
     const filteredTransactions = transactions.filter(tx => {
         const matchesSearch = !search ||
-            tx.profiles?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-            tx.profiles?.matricula?.toLowerCase().includes(search.toLowerCase());
+            (tx.student_name && tx.student_name.toLowerCase().includes(search.toLowerCase())) ||
+            (tx.description && tx.description.toLowerCase().includes(search.toLowerCase()));
 
         const matchesDate = (!dateRange.start || new Date(tx.created_at) >= new Date(dateRange.start)) &&
             (!dateRange.end || new Date(tx.created_at) <= new Date(dateRange.end));
@@ -1839,13 +1839,13 @@ function RegistrarWorkHistory() {
                             </div>
                             <div>
                                 <p className="text-xl font-bold">
-                                    {filteredTransactions.reduce((sum, tx) => tx.amount > 0 ? sum + tx.amount : sum, 0)}
+                                    {filteredTransactions.reduce((sum, tx) => tx.points > 0 ? sum + tx.points : sum, 0)}
                                 </p>
                                 <p className="text-xs opacity-80">Pts Asignados</p>
                             </div>
                             <div>
                                 <p className="text-xl font-bold">
-                                    {Math.abs(filteredTransactions.reduce((sum, tx) => tx.amount < 0 ? sum + tx.amount : sum, 0))}
+                                    {Math.abs(filteredTransactions.reduce((sum, tx) => tx.points < 0 ? sum + tx.points : sum, 0))}
                                 </p>
                                 <p className="text-xs opacity-80">Pts Canjeados</p>
                             </div>
@@ -1929,8 +1929,8 @@ function RegistrarWorkHistory() {
                             <div key={tx.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 animate-fade-in">
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${tx.amount > 0 ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                                            {tx.amount > 0 ? <Leaf size={18} /> : <Award size={18} />}
+                                        <div className={`p-2 rounded-lg ${tx.points > 0 ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                            {tx.points > 0 ? <Leaf size={18} /> : <Award size={18} />}
                                         </div>
                                         <div>
                                             <p className="font-bold text-gray-800 text-sm">{tx.student_name || 'Alumno'}</p>
