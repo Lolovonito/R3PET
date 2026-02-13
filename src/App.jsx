@@ -7,7 +7,8 @@ import {
     createUserWithEmailAndPassword,
     onAuthStateChanged,
     signOut,
-    updateProfile
+    updateProfile,
+    sendPasswordResetEmail
 } from "firebase/auth";
 import {
     doc,
@@ -24,7 +25,8 @@ import {
     onSnapshot,
     increment,
     runTransaction,
-    serverTimestamp
+    serverTimestamp,
+    deleteDoc
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
@@ -2714,6 +2716,33 @@ function AdminUserManagement() {
         fetchUsers();
     };
 
+    const handleDeleteUser = async (userId) => {
+        if (!window.confirm("¿Estás seguro de que deseas eliminar este usuario? Esta acción borrará su perfil de la aplicación.")) return;
+
+        try {
+            await deleteDoc(doc(db, "profiles", userId));
+            alert("Perfil eliminado correctamente.");
+            setEditingUser(null);
+            fetchUsers();
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            alert("Error al eliminar el usuario: " + error.message);
+        }
+    };
+
+    const handleResetPassword = async (email) => {
+        if (!email) return;
+        if (!window.confirm("Se enviará un correo de recuperación a " + email + ". ¿Continuar?")) return;
+
+        try {
+            await sendPasswordResetEmail(auth, email);
+            alert("Correo de recuperación enviado con éxito.");
+        } catch (error) {
+            console.error("Error resetting password:", error);
+            alert("Error al enviar el correo: " + error.message);
+        }
+    };
+
     const filteredUsers = users
         .filter(u => roleFilter === 'all' || u.role === roleFilter)
         .filter(u => {
@@ -2844,6 +2873,20 @@ function AdminUserManagement() {
                                             <option value="admin">Admin</option>
                                         </select>
                                     </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100/50">
+                                    <button
+                                        onClick={() => handleResetPassword(editingUser.email)}
+                                        className="bg-indigo-50 text-indigo-600 p-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors"
+                                    >
+                                        <RefreshCw size={14} /> Reset Clave
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteUser(editingUser.id)}
+                                        className="bg-red-50 text-red-600 p-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
+                                    >
+                                        <AlertCircle size={14} /> Eliminar
+                                    </button>
                                 </div>
                             </div>
                         ) : (
