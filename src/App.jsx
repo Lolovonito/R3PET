@@ -568,14 +568,18 @@ function StudentDashboard() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-3xl font-black">{((lifetimePoints || 0) * 0.05).toFixed(1)}</span>
+                                <span className="text-3xl font-black">
+                                    {((lifetimePoints || 0) * 0.05 + (totalCaps || 0) * 0.0025).toFixed(2)}
+                                </span>
                                 <span className="text-xs font-bold opacity-80">kg PET</span>
                             </div>
                             <p className="text-[10px] font-medium opacity-70">Peso Evidenciado</p>
                         </div>
                         <div className="border-l border-white/20 pl-4">
                             <div className="flex items-baseline gap-1 text-emerald-100">
-                                <span className="text-3xl font-black">{((lifetimePoints || 0) * 0.075).toFixed(2)}</span>
+                                <span className="text-3xl font-black">
+                                    {(((lifetimePoints || 0) * 0.05 + (totalCaps || 0) * 0.0025) * 1.5).toFixed(2)}
+                                </span>
                                 <span className="text-xs font-bold opacity-80">kg CO₂</span>
                             </div>
                             <p className="text-[10px] font-medium opacity-70 italic underline decoration-white/30 underline-offset-4">CO₂ Offset</p>
@@ -1104,11 +1108,12 @@ function RegistrarScanner() {
 
                 // 3. Actualizar Estadísticas Globales (Agregador NoSQL)
                 const statsRef = doc(db, "global_stats", "totals");
+                const addedKg = (bottles * 0.05) + (caps * 0.0025);
                 transaction.set(statsRef, {
                     total_points: increment(pts),
                     total_bottles: increment(bottles),
                     total_caps: increment(caps),
-                    total_kg: increment(bottles * 0.05),
+                    total_kg: increment(addedKg),
                     last_update: serverTimestamp()
                 }, { merge: true });
             });
@@ -2368,7 +2373,9 @@ function AdminStatistics() {
                 const tx = doc.data();
                 if (tx.points > 0) ptsCreated += tx.points;
                 if (tx.points < 0) ptsRedeemed += Math.abs(tx.points);
-                if (tx.bottles) totalKg += tx.bottles * 0.05;
+                const kgBottles = (tx.bottles || 0) * 0.05;
+                const kgCaps = (tx.caps || 0) * 0.0025;
+                totalKg += (kgBottles + kgCaps);
                 if (tx.caps) totalCaps += tx.caps;
             });
 
