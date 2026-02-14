@@ -17,6 +17,8 @@
     "@capacitor/android": "^5.7.8",
     "@capacitor/app": "^5.0.7",
     "@capacitor/core": "^5.7.8",
+    "@capacitor/filesystem": "^5.2.2",
+    "@capacitor/share": "^5.0.8",
     "@supabase/supabase-js": "^2.91.1",
     "browser-image-compression": "^2.0.2",
     "clsx": "^2.1.0",
@@ -30,7 +32,8 @@
     "react-dropzone": "^14.4.0",
     "react-router-dom": "^6.22.3",
     "source-map": "^0.7.6",
-    "tailwind-merge": "^2.2.1"
+    "tailwind-merge": "^2.2.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@capacitor/cli": "^5.7.8",

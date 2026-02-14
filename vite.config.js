@@ -8,10 +8,7 @@ export default defineConfig({
     {
       name: 'remove-crossorigin',
       transformIndexHtml(html) {
-        return html
-          .replace(/ crossorigin/g, "")
-          .replace('<head>', '<head><script>document.documentElement.style.backgroundColor = "purple"; console.log("Diagnostic start");</script>')
-          .replace('</head>', '<script>window.addEventListener("load", () => { document.body.style.backgroundColor = "orange"; console.log("Window loaded"); });</script></head>');
+        return html.replace(/ crossorigin/g, "");
       }
     }
   ],

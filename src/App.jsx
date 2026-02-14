@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AdminDashboard, AdminUserManagement, AdminCreateUser } from './AdminComponents';
+
+
 import imageCompression from 'browser-image-compression';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate, Outlet, useOutletContext } from 'react-router-dom';
 import { Leaf, Award, QrCode, User, Home, PlusCircle, Users, BarChart3, Settings, LogOut, CheckCircle2, Smartphone, Download, Coffee, ShoppingBag, Clock, Search, Trophy, Shield, CreditCard, ChevronLeft, ChevronRight, X, ArrowUp, Crown, TrendingUp, Filter, RefreshCw, BarChart, Package, AlertCircle } from 'lucide-react';
@@ -180,11 +183,16 @@ function LoginScreen() {
 
     const saveSession = async (session, profileData) => {
         const accounts = JSON.parse(localStorage.getItem('r3pet_saved_sessions') || '[]');
+        // Normalizar rol para consistencia interna ('student', 'registrar', 'admin')
+        let internalRole = profileData.role || 'student';
+        if (internalRole === 'alumno') internalRole = 'student';
+        if (internalRole === 'registrador') internalRole = 'registrar';
+
         const newAccount = {
             email: session.user.email,
-            id: session.user.id,
+            id: session.user.id || session.user.uid,
             full_name: profileData.full_name,
-            role: profileData.role,
+            role: internalRole,
             avatar_url: profileData.avatar_url,
             session: session,
             timestamp: Date.now()
@@ -213,7 +221,7 @@ function LoginScreen() {
                 // 2. Crear perfil en Firestore
                 await setDoc(doc(db, "profiles", user.uid), {
                     full_name: fullName,
-                    role: 'student',
+                    role: 'alumno',
                     matricula: matricula.toUpperCase(),
                     points: 0,
                     total_bottles: 0,
@@ -1468,9 +1476,9 @@ function ProfileScreen() {
         } catch (error) {
             console.error('Error detallado:', error);
             alert('Error al gestionar imagen: ' + error.message);
-        } finally { 
+        } finally {
             console.log("Restableciendo estado de carga.");
-            setUploading(false); 
+            setUploading(false);
         }
     };
 
@@ -2187,158 +2195,6 @@ function RankingScreen() {
 }
 
 
-// 4. ADMIN VISTAS
-function AdminDashboard() {
-    const navigate = useNavigate();
-    const [stats, setStats] = useState({
-        totalUsers: 0,
-        totalKg: 0,
-        totalPoints: 0,
-        adminCount: 0,
-        studentCount: 0,
-        registrarCount: 0
-    });
-
-    useEffect(() => {
-        // Suscripción al agregador global (Eficiente para números grandes)
-        const unsubStats = onSnapshot(doc(db, "global_stats", "totals"), (docSnap) => {
-            if (docSnap.exists()) {
-                const d = docSnap.data();
-                setStats(prev => ({
-                    ...prev,
-                    totalPoints: d.total_points || 0,
-                    totalKg: (d.total_kg || 0).toFixed(1)
-                }));
-            }
-        });
-
-        // Conteo de usuarios (Sigue siendo snapshot por ahora, pero más ligero)
-        const unsubProfiles = onSnapshot(collection(db, "profiles"), (snapshot) => {
-            let adminCount = 0;
-            let studentCount = 0;
-            let registrarCount = 0;
-            snapshot.forEach((doc) => {
-                const r = doc.data().role;
-                if (r === 'admin') adminCount++;
-                if (r === 'student') studentCount++;
-                if (r === 'registrar') registrarCount++;
-            });
-
-            setStats(prev => ({
-                ...prev,
-                totalUsers: snapshot.size,
-                adminCount,
-                studentCount,
-                registrarCount
-            }));
-        });
-
-        return () => {
-            unsubStats();
-            unsubProfiles();
-        };
-    }, []);
-
-    return (
-        <div className="p-4 space-y-6">
-            <header className="bg-white p-6 rounded-3xl shadow-xl shadow-green-100/50 border border-green-50 border-l-8 border-l-green-600 mb-6 animate-fade-in flex items-center gap-4">
-                <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-green-100">
-                    <Settings size={28} />
-                </div>
-                <div>
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tighter leading-none mb-1">Panel de Control</h2>
-                    <p className="text-[10px] text-green-600 font-black uppercase tracking-[0.2em]">Administración Central</p>
-                </div>
-            </header>
-
-            <div className="grid grid-cols-2 gap-4 mb-6">
-                <div
-                    onDoubleClick={() => navigate('/app/admin/statistics')}
-                    className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500 cursor-pointer active:scale-95 transition-all outline-none"
-                    title="Doble clic para ver estadísticas"
-                >
-                    <p className="text-gray-500 text-xs uppercase font-bold">Total Reciclado</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.totalKg} kg</p>
-                </div>
-                <div
-                    onDoubleClick={() => navigate('/app/admin/statistics')}
-                    className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 cursor-pointer active:scale-95 transition-all outline-none"
-                    title="Doble clic para ver estadísticas"
-                >
-                    <p className="text-gray-500 text-xs uppercase font-bold">Puntos Generados</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.totalPoints}</p>
-                </div>
-                <div
-                    onDoubleClick={() => navigate('/app/admin/users')}
-                    className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500 cursor-pointer active:scale-95 transition-all outline-none"
-                    title="Doble clic para gestionar alumnos"
-                >
-                    <p className="text-gray-500 text-xs uppercase font-bold">Alumnos</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.studentCount}</p>
-                </div>
-                <div
-                    onDoubleClick={() => navigate('/app/admin/users')}
-                    className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500 cursor-pointer active:scale-95 transition-all outline-none"
-                    title="Doble clic para gestionar registradores"
-                >
-                    <p className="text-gray-500 text-xs uppercase font-bold">Registradores</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.registrarCount}</p>
-                </div>
-                <div
-                    onDoubleClick={() => navigate('/app/admin/users')}
-                    className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-600 col-span-2 cursor-pointer active:scale-95 transition-all outline-none"
-                    title="Doble clic para gestionar administradores"
-                >
-                    <p className="text-gray-500 text-xs uppercase font-bold">Administradores</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.adminCount}</p>
-                </div>
-            </div>
-
-            <h3 className="font-bold text-gray-700 mb-3 ml-1">Herramientas de Gestión</h3>
-            <div className="grid grid-cols-1 gap-3 pb-20">
-                <Link to="/app/admin/users" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all active:scale-95">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600"><Users size={20} /></div>
-                        <div>
-                            <span className="font-bold text-gray-800 block">Gestión de Usuarios</span>
-                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Altas, Bajas y Edición</span>
-                        </div>
-                    </div>
-                </Link>
-
-                <Link to="/app/admin/statistics" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-purple-50 hover:border-purple-100 transition-all active:scale-95">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-purple-100 p-2.5 rounded-xl text-purple-600"><BarChart size={20} /></div>
-                        <div>
-                            <span className="font-bold text-gray-800 block text-purple-700">Eco-Analytics Global</span>
-                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Métricas e Impacto Detallado</span>
-                        </div>
-                    </div>
-                </Link>
-
-                <Link to="/app/admin/history" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-amber-50 hover:border-amber-100 transition-all active:scale-95">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-amber-100 p-2.5 rounded-xl text-amber-600"><Clock size={20} /></div>
-                        <div>
-                            <span className="font-bold text-gray-800 block text-amber-700">Historial Global</span>
-                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Transacciones y Canjes Detallados</span>
-                        </div>
-                    </div>
-                </Link>
-
-                <Link to="/app/admin/maintenance" className="bg-white p-4 rounded-2xl shadow-sm border border-red-50 flex items-center justify-between hover:bg-red-50 hover:border-red-100 transition-all active:scale-95">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-red-100 p-2.5 rounded-xl text-red-600"><RefreshCw size={20} /></div>
-                        <div>
-                            <span className="font-bold text-gray-800 block text-red-700">Mantenimiento App</span>
-                            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Limpieza y Reseteo Crítico</span>
-                        </div>
-                    </div>
-                </Link>
-            </div>
-        </div>
-    );
-}
 
 function AdminStatistics() {
     const navigate = useNavigate();
@@ -2631,7 +2487,7 @@ function AdminStatistics() {
                                 <div className="w-8 h-8 bg-green-50 text-green-600 rounded-lg flex items-center justify-center mb-2">
                                     <User size={18} />
                                 </div>
-                                <p className="text-2xl font-black text-gray-900">{stats.studentCount}</p>
+                                <p className="text-2xl font-black text-gray-900">{stats.alumnoCount}</p>
                                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alumnos Activos</p>
                             </div>
                         </div>
@@ -2696,465 +2552,7 @@ function AdminStatistics() {
     );
 }
 
-
-
-function AdminUserManagement() {
-    const [users, setUsers] = useState([]);
-    const [editingUser, setEditingUser] = useState(null);
-    const [formData, setFormData] = useState({ points: 0, role: 'student' });
-    const [roleFilter, setRoleFilter] = useState('all');
-    const [searchQuery, setSearchQuery] = useState('');
-
-    useEffect(() => {
-        fetchUsers();
-    }, []);
-
-    const fetchUsers = async () => {
-        const q = query(collection(db, "profiles"));
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setUsers(data || []);
-    };
-
-    const handleEdit = (user) => {
-        setEditingUser(user);
-        setFormData({ points: user.points, role: user.role });
-    };
-
-    const handleSave = async () => {
-        if (!editingUser) return;
-
-        await updateDoc(doc(db, "profiles", editingUser.id), {
-            points: formData.points,
-            role: formData.role
-        });
-
-        setEditingUser(null);
-        fetchUsers();
-    };
-
-    const handleDeleteUser = async (userId) => {
-        if (!window.confirm("¿Estás seguro de que deseas eliminar este usuario? Esta acción borrará su perfil de la aplicación.")) return;
-
-        try {
-            await deleteDoc(doc(db, "profiles", userId));
-            alert("Perfil eliminado correctamente.");
-            setEditingUser(null);
-            fetchUsers();
-        } catch (error) {
-            console.error("Error deleting user:", error);
-            alert("Error al eliminar el usuario: " + error.message);
-        }
-    };
-
-    const handleResetPassword = async (email) => {
-        if (!email) return;
-        if (!window.confirm("Se enviará un correo de recuperación a " + email + ". ¿Continuar?")) return;
-
-        try {
-            await sendPasswordResetEmail(auth, email);
-            alert("Correo de recuperación enviado con éxito.");
-        } catch (error) {
-            console.error("Error resetting password:", error);
-            alert("Error al enviar el correo: " + error.message);
-        }
-    };
-
-    const filteredUsers = users
-        .filter(u => roleFilter === 'all' || u.role === roleFilter)
-        .filter(u => {
-            if (!searchQuery) return true;
-            const query = searchQuery.toLowerCase();
-            return (
-                u.full_name?.toLowerCase().includes(query) ||
-                u.email?.toLowerCase().includes(query) ||
-                u.matricula?.toLowerCase().includes(query)
-            );
-        });
-
-    return (
-        <div className="p-4">
-            <header className="bg-white p-4 rounded-2xl shadow-lg shadow-green-100/30 border border-green-50 border-l-8 border-l-green-600 mb-4 animate-fade-in flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="bg-gray-50 p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
-                        <ChevronLeft size={18} />
-                    </button>
-                    <div>
-                        <h2 className="text-2xl font-black text-gray-900 tracking-tighter leading-none mb-0.5">Usuarios</h2>
-                        <p className="text-[9px] text-green-600 font-black uppercase tracking-[0.15em]">Gestión de Cuentas</p>
-                    </div>
-                </div>
-                <Link to="/app/admin/create" className="bg-green-600 text-white p-2.5 rounded-xl shadow-lg shadow-green-100 active:scale-95 transition-all">
-                    <PlusCircle size={22} />
-                </Link>
-            </header>
-
-            <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-2 group focus-within:border-green-300 transition-all mb-4">
-                <div className="pl-2.5 text-gray-400 group-focus-within:text-green-500 transition-colors">
-                    <Search size={18} />
-                </div>
-                <input
-                    type="text"
-                    placeholder="Nombre, email o matrícula..."
-                    className="w-full p-2 bg-transparent border-none focus:ring-0 text-sm font-medium"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
-            </div>
-
-            <div className="mb-6">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Filtrar por rol</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                    <button
-                        onClick={() => setRoleFilter('all')}
-                        className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${roleFilter === 'all'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-100 scale-105'
-                            : 'bg-white text-gray-400 border border-gray-100 hover:border-green-200'
-                            }`}
-                    >
-                        Todos · {users.length}
-                    </button>
-                    <button
-                        onClick={() => setRoleFilter('student')}
-                        className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${roleFilter === 'student'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-100 scale-105'
-                            : 'bg-white text-gray-400 border border-gray-100 hover:border-green-200'
-                            }`}
-                    >
-                        Alumnos · {users.filter(u => u.role === 'student').length}
-                    </button>
-                    <button
-                        onClick={() => setRoleFilter('registrar')}
-                        className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${roleFilter === 'registrar'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-100 scale-105'
-                            : 'bg-white text-gray-400 border border-gray-100 hover:border-green-200'
-                            }`}
-                    >
-                        Registradores · {users.filter(u => u.role === 'registrar').length}
-                    </button>
-                    <button
-                        onClick={() => setRoleFilter('admin')}
-                        className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${roleFilter === 'admin'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-100 scale-105'
-                            : 'bg-white text-gray-400 border border-gray-100 hover:border-green-200'
-                            }`}
-                    >
-                        Admins · {users.filter(u => u.role === 'admin').length}
-                    </button>
-                </div>
-            </div>
-
-            <div className="space-y-3">
-                {filteredUsers.map(user => (
-                    <div key={user.id} className={`p-4 rounded-xl border-2 animate-fade-in transition-all hover:translate-x-1 ${user.role === 'admin' ? 'bg-purple-50/40 border-purple-100/60' :
-                        user.role === 'registrar' ? 'bg-amber-50/40 border-amber-100/60' :
-                            'bg-green-50/40 border-green-100/60'
-                        }`}>
-                        {editingUser?.id === user.id ? (
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center border-b border-gray-100/50 pb-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-white rounded-lg overflow-hidden border border-gray-100 shadow-sm flex items-center justify-center">
-                                            {user.avatar_url ? (
-                                                <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span className="text-gray-400 font-bold">{user.full_name?.charAt(0).toUpperCase()}</span>
-                                            )}
-                                        </div>
-                                        <h3 className="font-bold text-gray-900 truncate max-w-[150px]">{user.full_name}</h3>
-                                    </div>
-                                    <div className="flex gap-2 shrink-0">
-                                        <button onClick={handleSave} className="bg-green-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all shadow-md shadow-green-100">Guardar</button>
-                                        <button onClick={() => setEditingUser(null)} className="bg-white text-gray-500 border border-gray-200 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all">Regresar</button>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white/80 p-3 rounded-lg border border-gray-100">
-                                        <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest block mb-1">Puntos</label>
-                                        <input
-                                            type="number"
-                                            value={formData.points}
-                                            onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) })}
-                                            className="w-full bg-transparent border-none p-0 text-sm font-bold text-gray-700 focus:ring-0"
-                                        />
-                                    </div>
-                                    <div className="bg-white/80 p-3 rounded-lg border border-gray-100">
-                                        <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest block mb-1">Rol</label>
-                                        <select
-                                            value={formData.role}
-                                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                            className="w-full bg-transparent border-none p-0 text-sm font-bold text-gray-700 focus:ring-0 capitalize"
-                                        >
-                                            <option value="student">Alumno</option>
-                                            <option value="registrar">Registrador</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100/50">
-                                    <button
-                                        onClick={() => handleResetPassword(editingUser.email)}
-                                        className="bg-indigo-50 text-indigo-600 p-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors"
-                                    >
-                                        <RefreshCw size={14} /> Reset Clave
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteUser(editingUser.id)}
-                                        className="bg-red-50 text-red-600 p-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
-                                    >
-                                        <AlertCircle size={14} /> Eliminar
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <div className={`w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center text-white text-xl font-bold shadow-md border-2 border-white transition-transform ${user.role === 'admin' ? 'bg-purple-600' :
-                                            user.role === 'registrar' ? 'bg-amber-500' :
-                                                'bg-green-600'
-                                            }`}>
-                                            {user.avatar_url ? (
-                                                <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                                            ) : (
-                                                user.full_name?.charAt(0).toUpperCase() || '?'
-                                            )}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <h3 className="font-bold text-gray-900 text-base uppercase tracking-tight truncate leading-tight">
-                                                    {user.full_name}
-                                                </h3>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[8px] font-bold px-2 py-0.5 rounded shadow-sm uppercase tracking-widest ${user.role === 'admin' ? 'bg-purple-600 text-white' :
-                                                    user.role === 'registrar' ? 'bg-amber-500 text-white' :
-                                                        'bg-green-600 text-white'
-                                                    }`}>
-                                                    {user.role}
-                                                </span>
-                                                <p className="text-[9px] font-semibold text-gray-400 truncate lowercase">{user.email}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="bg-white/60 backdrop-blur-sm p-2.5 rounded-lg border border-white/50 shadow-sm">
-                                            <p className="text-[7px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1 flex items-center gap-1">
-                                                <CreditCard size={8} /> Matrícula
-                                            </p>
-                                            <p className="text-[11px] font-bold text-gray-700 break-all leading-tight">
-                                                {user.matricula || '---'}
-                                            </p>
-                                        </div>
-                                        <div className="bg-white/60 backdrop-blur-sm p-2.5 rounded-lg border border-white/50 shadow-sm">
-                                            <p className="text-[7px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1 flex items-center gap-1">
-                                                <Trophy size={8} /> Balance
-                                            </p>
-                                            <p className={`text-xs font-bold ${user.role === 'admin' ? 'text-purple-600' :
-                                                user.role === 'registrar' ? 'text-amber-600' :
-                                                    'text-green-600'
-                                                }`}>
-                                                {user.points || 0} pts
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => handleEdit(user)}
-                                    className={`p-3 rounded-lg shadow-md active:scale-95 transition-all border-2 border-white text-white ${user.role === 'admin' ? 'bg-purple-600 hover:bg-purple-700' :
-                                        user.role === 'registrar' ? 'bg-amber-500 hover:bg-amber-600' :
-                                            'bg-green-600 hover:bg-green-700'
-                                        }`}
-                                    title="Editar"
-                                >
-                                    <Settings size={18} />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function AdminCreateUser() {
-    const navigate = useNavigate();
-    const [formData, setFormData] = useState({ fullName: '', email: '', password: '', matricula: '', role: 'student' });
-    const [message, setMessage] = useState(null);
-    const [loading, setLoading] = useState(false);
-
-    const handleCreate = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage(null);
-
-        // Validación básica
-        if (formData.role === 'student' && !formData.matricula) {
-            setMessage({ type: 'error', text: 'La matrícula es obligatoria para alumnos.' });
-            setLoading(false);
-            return;
-        }
-
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-            const user = userCredential.user;
-
-            await setDoc(doc(db, "profiles", user.uid), {
-                full_name: formData.fullName,
-                email: formData.email,
-                role: formData.role,
-                matricula: formData.role === 'student' ? formData.matricula : null,
-                points: 0,
-                total_bottles: 0,
-                avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
-                created_at: serverTimestamp()
-            });
-
-            setMessage({ type: 'success', text: `¡Cuenta de ${formData.role} creada con éxito!` });
-            setTimeout(() => navigate('/app/admin/users'), 2000);
-        } catch (error) {
-            setMessage({ type: 'error', text: error.message });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-gray-50 pb-20">
-            <header className={`p-6 border-b-4 animate-fade-in transition-colors duration-500 ${formData.role === 'admin' ? 'bg-purple-600 border-purple-700 shadow-purple-100' :
-                formData.role === 'registrar' ? 'bg-amber-500 border-amber-600 shadow-amber-100' :
-                    'bg-green-600 border-green-700 shadow-green-100'
-                } shadow-xl flex items-center gap-4 sticky top-0 z-40`}>
-                <button
-                    onClick={() => navigate(-1)}
-                    className="bg-white/20 p-2.5 rounded-xl text-white hover:bg-white/30 transition-all active:scale-95 shadow-sm"
-                >
-                    <ChevronLeft size={24} />
-                </button>
-                <div>
-                    <h2 className="text-2xl font-bold text-white tracking-tight leading-none mb-1">Nueva Cuenta</h2>
-                    <p className="text-[10px] text-white/80 font-bold uppercase tracking-widest">Panel de Administración</p>
-                </div>
-            </header>
-
-            <div className="p-4 max-w-md mx-auto animate-slide-up">
-                {message && (
-                    <div className={`p-4 rounded-xl mb-6 flex items-center gap-3 animate-bounce-in border shadow-sm ${message.type === 'error' ? 'bg-red-50 border-red-100 text-red-600' : 'bg-green-50 border-green-100 text-green-600'
-                        }`}>
-                        {message.type === 'error' ? <X size={20} /> : <CheckCircle size={20} />}
-                        <p className="text-xs font-bold uppercase tracking-tight">{message.text}</p>
-                    </div>
-                )}
-
-                <form onSubmit={handleCreate} className="bg-white p-6 rounded-xl shadow-md border-2 border-gray-100 space-y-5">
-                    {/* Selector de Rol */}
-                    <div className="grid grid-cols-3 gap-2 p-1 bg-gray-50 rounded-xl border border-gray-100">
-                        {['student', 'registrar', 'admin'].map((role) => (
-                            <button
-                                key={role}
-                                type="button"
-                                onClick={() => setFormData({ ...formData, role })}
-                                className={`py-3 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${formData.role === role
-                                    ? (role === 'admin' ? 'bg-purple-600 text-white shadow-md' : role === 'registrar' ? 'bg-amber-500 text-white shadow-md' : 'bg-green-600 text-white shadow-md')
-                                    : 'text-gray-400 hover:text-gray-600'
-                                    }`}
-                            >
-                                {role === 'student' ? 'Alumno' : role === 'registrar' ? 'Registro' : 'Admin'}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="space-y-4 pt-2">
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Nombre Completo</label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.fullName}
-                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                                className="w-full p-3.5 bg-gray-50 border-2 border-transparent rounded-xl text-sm font-bold text-gray-700 focus:border-green-100 focus:bg-white transition-all outline-none"
-                                placeholder="Ej. Juan Pérez"
-                            />
-                        </div>
-
-                        {formData.role === 'student' && (
-                            <div className="animate-fade-in">
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Matrícula Escolar</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.matricula}
-                                        onChange={(e) => setFormData({ ...formData, matricula: e.target.value })}
-                                        className="w-full p-3.5 pl-10 bg-gray-50 border-2 border-transparent rounded-xl text-sm font-bold text-gray-700 focus:border-green-100 focus:bg-white transition-all outline-none"
-                                        placeholder="Número de control"
-                                    />
-                                    <CreditCard size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
-                                </div>
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Correo Electrónico</label>
-                            <input
-                                type="email"
-                                required
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full p-3.5 bg-gray-50 border-2 border-transparent rounded-xl text-sm font-bold text-gray-700 focus:border-green-100 focus:bg-white transition-all outline-none"
-                                placeholder="usuario@escuela.edu"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Contraseña</label>
-                            <input
-                                type="password"
-                                required
-                                minLength={6}
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full p-3.5 bg-gray-50 border-2 border-transparent rounded-xl text-sm font-bold text-gray-700 focus:border-green-100 focus:bg-white transition-all outline-none"
-                                placeholder="Mínimo 6 caracteres"
-                            />
-                        </div>
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className={`w-full py-4 rounded-xl text-xs font-bold uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all mt-4 disabled:opacity-50 flex items-center justify-center gap-2 ${formData.role === 'admin' ? 'bg-purple-600 shadow-purple-100' :
-                            formData.role === 'registrar' ? 'bg-amber-500 shadow-amber-100' :
-                                'bg-green-600 shadow-green-100'
-                            }`}
-                    >
-                        {loading ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Procesando...
-                            </>
-                        ) : (
-                            <>
-                                <PlusCircle size={18} />
-                                Crear Cuenta
-                            </>
-                        )}
-                    </button>
-                </form>
-
-                <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-8">
-                    R3PET Management System • Professional Edition
-                </p>
-            </div>
-        </div>
-    );
-}
-
-// 5. MAINTENANCE VISTAS
 function AdminMaintenance() {
-    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
 
     const resetStats = async () => {
@@ -3223,7 +2621,12 @@ function AdminMaintenance() {
 
             snapshot.forEach(d => {
                 const userData = d.data();
-                if (userData.role === role) {
+                // Soporte Bilingüe para borrado masivo
+                const isMatch = (role === 'student' && (userData.role === 'student' || userData.role === 'alumno')) ||
+                    (role === 'registrar' && (userData.role === 'registrar' || userData.role === 'registrador')) ||
+                    (userData.role === role);
+
+                if (isMatch) {
                     batch.delete(d.ref);
                     deletedCount++;
                 }
@@ -3231,7 +2634,7 @@ function AdminMaintenance() {
 
             if (deletedCount > 0) {
                 await batch.commit();
-                alert(`Se han borrado ${deletedCount} perfiles de ${roleLabel.toLowerCase()}.`);
+                alert(`Se han borrado ${deletedCount} perfiles de ${roleLabel.toLowerCase()}.\n\nAVISO: Los accesos en Firebase Authentication no se han borrado masivamente por seguridad. Usa el botón "Eliminar" individual en la gestión de usuarios para un borrado total.`);
             } else {
                 alert(`No se encontraron perfiles con el rol ${roleLabel.toLowerCase()}.`);
             }
@@ -3380,9 +2783,9 @@ function AdminProfile() {
         } catch (error) {
             console.error('Error detallado:', error);
             alert('Error al gestionar imagen: ' + error.message);
-        } finally { 
+        } finally {
             console.log("Restableciendo estado de carga.");
-            setUploading(false); 
+            setUploading(false);
         }
     };
 
@@ -3684,9 +3087,22 @@ function App() {
                 unsubProfile = onSnapshot(doc(db, "profiles", user.uid), (docSnap) => {
                     if (docSnap.exists()) {
                         const profileData = docSnap.data();
-                        setUserRole(profileData.role);
-                        // Estos setters no existen en App, se derivan de la sesión o se manejan en subcomponentes
-                        console.log("Sesión activa para:", profileData.full_name);
+
+                        // Guarda de Seguridad: Usuarios Deshabilitados
+                        if (profileData.disabled) {
+                            signOut(auth);
+                            alert("Esta cuenta ha sido desactivada por el administrador.");
+                            return;
+                        }
+
+                        // Normalización Global de Roles (Español -> Interno Inglés)
+                        // Esto evita pantallas en blanco y mantiene la compatibilidad de rutas
+                        let role = profileData.role || 'student';
+                        if (role === 'alumno') role = 'student';
+                        if (role === 'registrador') role = 'registrar';
+
+                        setUserRole(role);
+                        console.log("Sesión activa para:", profileData.full_name, "Rol:", role);
                     } else {
                         setUserRole('student');
                         setLoading(false);
