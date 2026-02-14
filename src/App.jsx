@@ -1440,48 +1440,27 @@ function ProfileScreen() {
 
         setUploading(true);
         try {
-            // 1. Compresión Automática (Máximo 1MB para balancear calidad)
-            const options = {
-                maxSizeMB: 1,
-                maxWidthOrHeight: 1024,
-                useWebWorker: true,
-            };
+            // 1. Compresión Agresiva (50KB) para Firestore
+            const options = { maxSizeMB: 0.05, maxWidthOrHeight: 400, useWebWorker: true };
             const compressedFile = await imageCompression(file, options);
 
-            // 2. Limpieza de Storage (Borrar anterior si existe)
-            if (profile?.avatar_url && profile.avatar_url.includes('firebase')) {
-                try {
-                    const decodedUrl = decodeURIComponent(profile.avatar_url.split('/o/')[1].split('?')[0]);
-                    const oldRef = ref(storage, decodedUrl);
-                    await deleteObject(oldRef);
-                } catch (delErr) {
-                    console.warn("No se pudo borrar el avatar anterior:", delErr);
-                }
-            }
-
-            // 3. Subida del archivo optimizado
-            const fileExt = compressedFile.name.split('.').pop() || 'jpg';
-            const fileName = `avatars/${userId}-${Date.now()}.${fileExt}`;
-            const storageRef = ref(storage, fileName);
-
-            await uploadBytes(storageRef, compressedFile);
-            const publicUrl = await getDownloadURL(storageRef);
-
-            // 4. Actualizar Firestore
-            await updateDoc(doc(db, "profiles", userId), {
-                avatar_url: publicUrl
+            // 2. Base64
+            const reader = new FileReader();
+            const base64Promise = new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (err) => reject(err);
+                reader.readAsDataURL(compressedFile);
             });
+            const base64String = await base64Promise;
 
-            // Actualizar estado local
-            setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
-            alert("Avatar actualizado y optimizado 🚀");
-
+            // 3. Guardar en Firestore
+            await updateDoc(doc(db, "profiles", userId), { avatar_url: base64String });
+            setProfile(prev => ({ ...prev, avatar_url: base64String }));
+            alert("Avatar actualizado (Guardado en Firestore) 🚀");
         } catch (error) {
-            console.error('Error al subir imagen:', error);
+            console.error('Error:', error);
             alert('Error al gestionar imagen: ' + error.message);
-        } finally {
-            setUploading(false);
-        }
+        } finally { setUploading(false); }
     };
 
     return (
@@ -3361,48 +3340,27 @@ function AdminProfile() {
 
         setUploading(true);
         try {
-            // 1. Compresión Automática (Máximo 1MB para balancear calidad)
-            const options = {
-                maxSizeMB: 1,
-                maxWidthOrHeight: 1024,
-                useWebWorker: true,
-            };
+            // 1. Compresión Agresiva (50KB) para Firestore
+            const options = { maxSizeMB: 0.05, maxWidthOrHeight: 400, useWebWorker: true };
             const compressedFile = await imageCompression(file, options);
 
-            // 2. Limpieza de Storage (Borrar anterior si existe)
-            if (profile?.avatar_url && profile.avatar_url.includes('firebase')) {
-                try {
-                    const decodedUrl = decodeURIComponent(profile.avatar_url.split('/o/')[1].split('?')[0]);
-                    const oldRef = ref(storage, decodedUrl);
-                    await deleteObject(oldRef);
-                } catch (delErr) {
-                    console.warn("No se pudo borrar el avatar anterior:", delErr);
-                }
-            }
-
-            // 3. Subida del archivo optimizado
-            const fileExt = compressedFile.name.split('.').pop() || 'jpg';
-            const fileName = `avatars/${userId}-${Date.now()}.${fileExt}`;
-            const storageRef = ref(storage, fileName);
-
-            await uploadBytes(storageRef, compressedFile);
-            const publicUrl = await getDownloadURL(storageRef);
-
-            // 4. Actualizar Firestore
-            await updateDoc(doc(db, "profiles", userId), {
-                avatar_url: publicUrl
+            // 2. Base64
+            const reader = new FileReader();
+            const base64Promise = new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (err) => reject(err);
+                reader.readAsDataURL(compressedFile);
             });
+            const base64String = await base64Promise;
 
-            // Actualizar estado local
-            setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
-            alert("Avatar actualizado y optimizado 🚀");
-
+            // 3. Guardar en Firestore
+            await updateDoc(doc(db, "profiles", userId), { avatar_url: base64String });
+            setProfile(prev => ({ ...prev, avatar_url: base64String }));
+            alert("Avatar actualizado (Guardado en Firestore) 🚀");
         } catch (error) {
-            console.error('Error al subir imagen:', error);
+            console.error('Error:', error);
             alert('Error al gestionar imagen: ' + error.message);
-        } finally {
-            setUploading(false);
-        }
+        } finally { setUploading(false); }
     };
 
     return (
