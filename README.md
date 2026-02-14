@@ -1,6 +1,6 @@
 # ♻️ R3PET - Sistema de Reciclaje Escolar
 
-R3PET es un **proyecto personal de acceso restringido**, diseñado específicamente para fomentar el reciclaje dentro de la comunidad escolar mediante un sistema de puntos, recompensas y gestión de residuos (botellas y tapitas). 
+R3PET es un **proyecto escolar de acceso restringido**, diseñado específicamente para fomentar el reciclaje dentro de la comunidad escolar mediante un sistema de puntos, recompensas y gestión de residuos (botellas y tapitas). 
 
 > [!IMPORTANT]
 > Este es un sistema de uso interno. El acceso y registro de usuarios está limitado a los alumnos y personal autorizado.
