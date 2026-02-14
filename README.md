@@ -1,6 +1,11 @@
-# ♻️ R3PET - Sistema Inteligente de Reciclaje
+# ♻️ R3PET - Sistema de Reciclaje Escolar (Privado)
 
-R3PET es una aplicación híbrida (Web y Android) diseñada para incentivar el reciclaje mediante un sistema de puntos, recompensas y gestión de residuos (botellas y tapitas). La plataforma utiliza **Firebase** para la autenticación y base de datos en tiempo real, junto con **Capacitor** para ofrecer una experiencia nativa en dispositivos móviles.
+R3PET es un **proyecto personal de acceso restringido**, desarrollado específicamente para la comunidad escolar de **CEC y TE BC Plantel Playas De Tijuana**. Su objetivo es fomentar el reciclaje dentro de la institución mediante un sistema de puntos, recompensas y gestión de residuos (botellas y tapitas). 
+
+> [!IMPORTANT]
+> Este es un sistema privado de uso interno. El acceso y registro de usuarios está limitado a los alumnos y personal autorizado del plantel.
+
+La plataforma utiliza **Firebase** para la autenticación y base de datos en tiempo real, junto con **Capacitor** para ofrecer una experiencia nativa en dispositivos móviles Android.
 
 ## 🚀 Características Principales
 
