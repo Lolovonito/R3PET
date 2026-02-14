@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "android:prepare": "npm run build && npx cap sync android",
+    "android:prepare": "npm run build && npx cap sync android && node fix-gradle.cjs",
     "android:open": "npx cap open android",
     "deploy": "firebase deploy --only hosting"
   },
