@@ -899,24 +899,35 @@ function RegistrarScanner() {
 
     const stopScanner = async () => {
         try {
-            document.body.classList.remove('barcode-scanner-active');
+            // 1. Detener flujo de datos y UI React inmediatamente
             setIsScanning(false);
             setIsProcessingScan(false);
             setIsTorchOn(false);
 
+            // 2. Detener hardware nativo
             try {
                 await BarcodeScanner.stopScan();
             } catch (e) {
                 console.warn('Scanner ya estaba detenido:', e.message);
             }
 
+            // 3. Limpieza profunda de listeners (Crucial para evitar reinicios)
             try {
                 await BarcodeScanner.removeAllListeners();
             } catch (e) {
                 console.warn('Error removiendo listeners:', e.message);
             }
+
+            // 4. Restaurar UI WebView con un pequeño delay para que el driver nativo libere la cámara
+            setTimeout(() => {
+                document.body.classList.remove('barcode-scanner-active');
+            }, 100);
+
         } catch (err) {
             console.error('Error general al detener scanner:', err);
+            // Fallback agresivo: Si todo falla, limpiar clase CSS al menos
+            document.body.classList.remove('barcode-scanner-active');
+            setIsScanning(false);
         }
     };
 
