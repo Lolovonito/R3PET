@@ -1437,13 +1437,17 @@ function ProfileScreen() {
             return;
         }
 
+        console.log("Iniciando carga de avatar...", file.name, file.size);
         setUploading(true);
         try {
             // 1. Compresión Agresiva (50KB) para Firestore
-            const options = { maxSizeMB: 0.05, maxWidthOrHeight: 400, useWebWorker: true };
+            console.log("Comprimiendo imagen...");
+            const options = { maxSizeMB: 0.05, maxWidthOrHeight: 400, useWebWorker: false };
             const compressedFile = await imageCompression(file, options);
+            console.log("Imagen comprimida:", compressedFile.size);
 
             // 2. Base64
+            console.log("Convirtiendo a Base64...");
             const reader = new FileReader();
             const base64Promise = new Promise((resolve, reject) => {
                 reader.onload = () => resolve(reader.result);
@@ -1451,15 +1455,23 @@ function ProfileScreen() {
                 reader.readAsDataURL(compressedFile);
             });
             const base64String = await base64Promise;
+            console.log("Base64 generado (longitud):", base64String.length);
 
             // 3. Guardar en Firestore
+            console.log("Guardando en Firestore para el usuario:", userId);
+            if (!userId) throw new Error("ID de usuario no encontrado en el contexto.");
+
             await updateDoc(doc(db, "profiles", userId), { avatar_url: base64String });
             setProfile(prev => ({ ...prev, avatar_url: base64String }));
-            alert("Avatar actualizado (Guardado en Firestore) 🚀");
+            console.log("¡Éxito! Avatar actualizado.");
+            alert("Avatar actualizado (Base64) 🚀");
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error detallado:', error);
             alert('Error al gestionar imagen: ' + error.message);
-        } finally { setUploading(false); }
+        } finally { 
+            console.log("Restableciendo estado de carga.");
+            setUploading(false); 
+        }
     };
 
     return (
@@ -3337,13 +3349,17 @@ function AdminProfile() {
             return;
         }
 
+        console.log("Iniciando carga de avatar...", file.name, file.size);
         setUploading(true);
         try {
             // 1. Compresión Agresiva (50KB) para Firestore
-            const options = { maxSizeMB: 0.05, maxWidthOrHeight: 400, useWebWorker: true };
+            console.log("Comprimiendo imagen...");
+            const options = { maxSizeMB: 0.05, maxWidthOrHeight: 400, useWebWorker: false };
             const compressedFile = await imageCompression(file, options);
+            console.log("Imagen comprimida:", compressedFile.size);
 
             // 2. Base64
+            console.log("Convirtiendo a Base64...");
             const reader = new FileReader();
             const base64Promise = new Promise((resolve, reject) => {
                 reader.onload = () => resolve(reader.result);
@@ -3351,15 +3367,23 @@ function AdminProfile() {
                 reader.readAsDataURL(compressedFile);
             });
             const base64String = await base64Promise;
+            console.log("Base64 generado (longitud):", base64String.length);
 
             // 3. Guardar en Firestore
+            console.log("Guardando en Firestore para el usuario:", userId);
+            if (!userId) throw new Error("ID de usuario no encontrado en el contexto.");
+
             await updateDoc(doc(db, "profiles", userId), { avatar_url: base64String });
             setProfile(prev => ({ ...prev, avatar_url: base64String }));
-            alert("Avatar actualizado (Guardado en Firestore) 🚀");
+            console.log("¡Éxito! Avatar actualizado.");
+            alert("Avatar actualizado (Base64) 🚀");
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error detallado:', error);
             alert('Error al gestionar imagen: ' + error.message);
-        } finally { setUploading(false); }
+        } finally { 
+            console.log("Restableciendo estado de carga.");
+            setUploading(false); 
+        }
     };
 
     return (
