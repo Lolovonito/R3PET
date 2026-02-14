@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, Navigate, Outlet, useOutletContext } from 'react-router-dom';
 import { Leaf, Award, QrCode, User, Home, PlusCircle, Users, BarChart3, Settings, LogOut, CheckCircle2, Smartphone, Download, Coffee, ShoppingBag, Clock, Search, Trophy, Shield, CreditCard, ChevronLeft, ChevronRight, X, ArrowUp, Crown, TrendingUp, Filter, RefreshCw, BarChart, Package, AlertCircle } from 'lucide-react';
-import { auth, db, storage } from './firebaseConfig';
+import { auth, db } from './firebaseConfig';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
@@ -31,7 +31,6 @@ import {
     deleteDoc,
     writeBatch
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
 import { App as CapacitorApp } from '@capacitor/app';
 import { QRCodeCanvas } from 'qrcode.react';
